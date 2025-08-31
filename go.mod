@@ -4,8 +4,8 @@ go 1.23.0
 
 require (
 	github.com/doug-martin/goqu/v9 v9.19.0
+	github.com/dracory/uid v1.7.0
 	github.com/georgysavva/scany v1.2.3
-	github.com/gouniverse/uid v1.5.0
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 )
 

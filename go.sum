@@ -14,6 +14,8 @@ github.com/denisenkom/go-mssqldb v0.10.0 h1:QykgLZBorFE95+gO3u9esLd0BmbvpWp0/waN
 github.com/denisenkom/go-mssqldb v0.10.0/go.mod h1:xbL0rPBG9cCiLr28tMa8zpbdarY27NDyej4t/EjAShU=
 github.com/doug-martin/goqu/v9 v9.19.0 h1:PD7t1X3tRcUiSdc5TEyOFKujZA5gs3VSA7wxSvBx7qo=
 github.com/doug-martin/goqu/v9 v9.19.0/go.mod h1:nf0Wc2/hV3gYK9LiyqIrzBEVGlI8qW3GuDCEobC4wBQ=
+github.com/dracory/uid v1.7.0 h1:CEi1qQbphJ/dZWaWM8BiVFeBt0QvoJRd/CwN/FesOeE=
+github.com/dracory/uid v1.7.0/go.mod h1:fAj11RGkpDfmpVyEQhGpMuwxoYSaLRhPIVrEdaUt0W0=
 github.com/georgysavva/scany v1.2.3 h1:yaEtl1B2i3qjCIsmLchSrcw2MxktvK+N0oi7uzYyqWk=
 github.com/georgysavva/scany v1.2.3/go.mod h1:vGBpL5XRLOocMFFa55pj0P04DrL3I7qKVRL49K6Eu5o=
 github.com/go-sql-driver/mysql v1.5.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
@@ -28,8 +30,6 @@ github.com/golang-sql/civil v0.0.0-20190719163853-cb61b32ac6fe/go.mod h1:8vg3r2V
 github.com/google/renameio v0.1.0/go.mod h1:KWCgfxg9yswjAJkECMjeO8J8rahYeXnNhOm40UhjYkI=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/gouniverse/uid v1.5.0 h1:evyGegnY7+KeYirDhJntI9xmODf8jPMQw8DlMpQIPnM=
-github.com/gouniverse/uid v1.5.0/go.mod h1:06dzYTyBLOu+iRlKZ8GxzEfgDSLyoZwgKns9Fcvt7G4=
 github.com/jackc/chunkreader v1.0.0 h1:4s39bBR8ByfqH+DKm8rQA3E1LHZWB9XWcrz8fqaZbe0=
 github.com/jackc/chunkreader v1.0.0/go.mod h1:RT6O25fNZIuasFJRyZ4R/Y2BbhasbmZXF9QQ7T3kePo=
 github.com/jackc/chunkreader/v2 v2.0.0/go.mod h1:odVSm741yZoC3dpHEUXIqA9tQRhFrgOHwnPIn9lDKlk=
