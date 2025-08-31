@@ -1,4 +1,4 @@
-module github.com/gouniverse/cachestore
+module github.com/dracory/cachestore
 
 go 1.23.0
 
