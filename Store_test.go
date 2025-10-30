@@ -31,7 +31,7 @@ func TestStoreCreate(t *testing.T) {
 	})
 
 	if err != nil {
-		t.Fatalf("Store could not be created: " + err.Error())
+		t.Fatalf("Store could not be created: %v", err)
 	}
 
 	if store == nil {
@@ -41,7 +41,7 @@ func TestStoreCreate(t *testing.T) {
 	err = store.Set("post", "1234567890", 5)
 
 	if err != nil {
-		t.Fatalf("Cache could not be created: " + err.Error())
+		t.Fatalf("Cache could not be created: %v", err)
 	}
 }
 
@@ -57,13 +57,13 @@ func TestStoreAutomigrate(t *testing.T) {
 	err := store.AutoMigrate()
 
 	if err != nil {
-		t.Fatalf("Automigrate failed: " + err.Error())
+		t.Fatalf("Automigrate failed: %v", err)
 	}
 
 	err = store.Set("post", "1234567890", 5)
 
 	if err != nil {
-		t.Fatalf("Cache could not be created: " + err.Error())
+		t.Fatalf("Cache could not be created: %v", err)
 	}
 }
 
@@ -79,12 +79,12 @@ func TestStoreCacheDelete(t *testing.T) {
 	err := store.Remove("post")
 
 	if err != nil {
-		t.Fatalf("Entity could not be created: " + err.Error())
+		t.Fatalf("Entity could not be created: %v", err)
 	}
 
 	val, err := store.FindByKey("post")
 	if err != nil {
-		t.Fatalf("Getting JSON failed:" + err.Error())
+		t.Fatalf("Getting JSON failed: %v", err)
 	}
 	if val != nil {
 		t.Fatalf("Cache should no longer be present")
@@ -104,7 +104,7 @@ func TestStoreEnableDebug(t *testing.T) {
 	err := store.AutoMigrate()
 
 	if err != nil {
-		t.Fatalf("Automigrate failed: " + err.Error())
+		t.Fatalf("Automigrate failed: %v", err)
 	}
 }
 
@@ -120,16 +120,16 @@ func TestSetKey(t *testing.T) {
 	err := store.Set("hello", "world", 1)
 
 	if err != nil {
-		t.Fatalf("Setting key failed: " + err.Error())
+		t.Fatalf("Setting key failed: %v", err)
 	}
 
 	value, err := store.Get("hello", "")
 	if err != nil {
-		t.Fatalf("Getting JSON failed:" + err.Error())
+		t.Fatalf("Getting JSON failed: %v", err)
 	}
 
 	if value != "world" {
-		t.Fatalf("Incorrect value: " + err.Error())
+		t.Fatalf("Incorrect value: %v", value)
 	}
 }
 
@@ -145,13 +145,13 @@ func TestUpdateKey(t *testing.T) {
 	err := store.Set("hello", "world", 1)
 
 	if err != nil {
-		t.Fatalf("Setting key failed: " + err.Error())
+		t.Fatalf("Setting key failed: %v", err)
 	}
 
 	cache1, err := store.FindByKey("hello")
 
 	if err != nil {
-		t.Fatalf("Find by key failed:" + err.Error())
+		t.Fatalf("Find by key failed: %v", err)
 	}
 
 	time.Sleep(2 * time.Second)
@@ -159,32 +159,32 @@ func TestUpdateKey(t *testing.T) {
 	err2 := store.Set("hello", "world", 1)
 
 	if err2 != nil {
-		t.Fatalf("Update setting key failed: " + err2.Error())
+		t.Fatalf("Update setting key failed: %v", err2)
 	}
 
 	cache2, err := store.FindByKey("hello")
 	if err != nil {
-		t.Fatalf("Find by key failed:" + err.Error())
+		t.Fatalf("Find by key failed: %v", err)
 	}
 
 	if cache2 == nil {
-		t.Fatalf("Cache not found: " + err.Error())
+		t.Fatalf("Cache not found")
 	}
 
 	if cache2.Value != "world" {
-		t.Fatalf("Value not correct: " + cache2.Value)
+		t.Fatalf("Value not correct: %s", cache2.Value)
 	}
 
 	if cache2.Key != "hello" {
-		t.Fatalf("Key not correct: " + cache2.Key)
+		t.Fatalf("Key not correct: %s", cache2.Key)
 	}
 
 	if cache2.UpdatedAt == cache1.CreatedAt {
-		t.Fatalf("Updated at should be different from created at date: " + cache2.UpdatedAt.Format(time.UnixDate))
+		t.Fatalf("Updated at should be different from created at date: %s", cache2.UpdatedAt.Format(time.UnixDate))
 	}
 
 	if cache2.UpdatedAt.Sub(cache1.CreatedAt).Seconds() < 1 {
-		t.Fatalf("Updated at should more than 1 second after created at date: " + cache2.UpdatedAt.Format(time.UnixDate) + " - " + cache1.CreatedAt.Format(time.UnixDate))
+		t.Fatalf("Updated at should more than 1 second after created at date: %s - %s", cache2.UpdatedAt.Format(time.UnixDate), cache1.CreatedAt.Format(time.UnixDate))
 	}
 }
 
@@ -200,13 +200,13 @@ func TestSetGetJSON(t *testing.T) {
 	err := store.SetJSON("hello", map[string]string{"first_name": "Jo"}, 1)
 
 	if err != nil {
-		t.Fatalf("Setting key failed: " + err.Error())
+		t.Fatalf("Setting key failed: %v", err)
 	}
 
 	value, err := store.GetJSON("hello", "")
 
 	if err != nil {
-		t.Fatalf("Getting JSON failed:" + err.Error())
+		t.Fatalf("Getting JSON failed: %v", err)
 	}
 
 	result := value.(map[string]interface{})
