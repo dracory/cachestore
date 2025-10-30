@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/glebarez/go-sqlite"
 )
 
 func InitDB(filepath string) *sql.DB {
 	os.Remove(filepath) // remove database
-	dsn := filepath + "?parseTime=true"
-	db, err := sql.Open("sqlite3", dsn)
+	dsn := filepath + "?_pragma=busy_timeout(5000)"
+	db, err := sql.Open("sqlite", dsn)
 
 	if err != nil {
 		panic(err)
