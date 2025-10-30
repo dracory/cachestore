@@ -2,21 +2,22 @@ package cachestore
 
 import (
 	"database/sql"
-	"os"
+	"fmt"
 	"testing"
 	"time"
 
 	_ "github.com/glebarez/go-sqlite"
 )
 
-func InitDB(filepath string) *sql.DB {
-	os.Remove(filepath) // remove database
-	dsn := filepath + "?_pragma=busy_timeout(5000)"
+func InitDB(name string) *sql.DB {
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_pragma=busy_timeout(5000)", name)
 	db, err := sql.Open("sqlite", dsn)
 
 	if err != nil {
 		panic(err)
 	}
+
+	db.SetMaxOpenConns(1)
 
 	return db
 }
