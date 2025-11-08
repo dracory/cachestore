@@ -2,28 +2,42 @@ package cachestore
 
 import (
 	"database/sql"
-	"fmt"
 	"testing"
 	"time"
 
-	_ "github.com/glebarez/go-sqlite"
+	_ "modernc.org/sqlite"
 )
 
-func InitDB(name string) *sql.DB {
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_pragma=busy_timeout(5000)", name)
+func initDB() (*sql.DB, error) {
+	dsn := ":memory:?parseTime=true"
 	db, err := sql.Open("sqlite", dsn)
 
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	db.SetMaxOpenConns(1)
-
-	return db
+	return db, nil
 }
 
+// func InitDB(name string) *sql.DB {
+// 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_pragma=busy_timeout(5000)", name)
+// 	db, err := sql.Open("sqlite", dsn)
+
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	db.SetMaxOpenConns(1)
+
+// 	return db
+// }
+
 func TestStoreCreate(t *testing.T) {
-	db := InitDB("test_cache_store_create.db")
+	db, err := initDB()
+
+	if err != nil {
+		t.Fatalf("DB could not be created: %v", err)
+	}
 
 	store, err := NewStore(NewStoreOptions{
 		DB:                 db,
@@ -47,7 +61,11 @@ func TestStoreCreate(t *testing.T) {
 }
 
 func TestStoreAutomigrate(t *testing.T) {
-	db := InitDB("test_cache_automigrate.db")
+	db, err := initDB()
+
+	if err != nil {
+		t.Fatalf("DB could not be created: %v", err)
+	}
 
 	store, _ := NewStore(NewStoreOptions{
 		DB:                 db,
@@ -55,7 +73,7 @@ func TestStoreAutomigrate(t *testing.T) {
 		AutomigrateEnabled: false,
 	})
 
-	err := store.AutoMigrate()
+	err = store.AutoMigrate()
 
 	if err != nil {
 		t.Fatalf("Automigrate failed: %v", err)
@@ -69,7 +87,11 @@ func TestStoreAutomigrate(t *testing.T) {
 }
 
 func TestStoreCacheDelete(t *testing.T) {
-	db := InitDB("test_cache_delete.db")
+	db, err := initDB()
+
+	if err != nil {
+		t.Fatalf("DB could not be created: %v", err)
+	}
 
 	store, _ := NewStore(NewStoreOptions{
 		DB:                 db,
@@ -77,7 +99,7 @@ func TestStoreCacheDelete(t *testing.T) {
 		AutomigrateEnabled: true,
 	})
 
-	err := store.Remove("post")
+	err = store.Remove("post")
 
 	if err != nil {
 		t.Fatalf("Entity could not be created: %v", err)
@@ -93,7 +115,11 @@ func TestStoreCacheDelete(t *testing.T) {
 }
 
 func TestStoreEnableDebug(t *testing.T) {
-	db := InitDB("test_cache_debug.db")
+	db, err := initDB()
+
+	if err != nil {
+		t.Fatalf("DB could not be created: %v", err)
+	}
 
 	store, _ := NewStore(NewStoreOptions{
 		DB:                 db,
@@ -102,7 +128,7 @@ func TestStoreEnableDebug(t *testing.T) {
 	})
 	store.EnableDebug(true)
 
-	err := store.AutoMigrate()
+	err = store.AutoMigrate()
 
 	if err != nil {
 		t.Fatalf("Automigrate failed: %v", err)
@@ -110,7 +136,11 @@ func TestStoreEnableDebug(t *testing.T) {
 }
 
 func TestSetKey(t *testing.T) {
-	db := InitDB("test_cache_set_key.db")
+	db, err := initDB()
+
+	if err != nil {
+		t.Fatalf("DB could not be created: %v", err)
+	}
 
 	store, _ := NewStore(NewStoreOptions{
 		DB:                 db,
@@ -118,7 +148,7 @@ func TestSetKey(t *testing.T) {
 		AutomigrateEnabled: true,
 	})
 
-	err := store.Set("hello", "world", 1)
+	err = store.Set("hello", "world", 1)
 
 	if err != nil {
 		t.Fatalf("Setting key failed: %v", err)
@@ -135,7 +165,11 @@ func TestSetKey(t *testing.T) {
 }
 
 func TestUpdateKey(t *testing.T) {
-	db := InitDB("test_cache_update_key.db")
+	db, err := initDB()
+
+	if err != nil {
+		t.Fatalf("DB could not be created: %v", err)
+	}
 
 	store, _ := NewStore(NewStoreOptions{
 		DB:                 db,
@@ -143,7 +177,7 @@ func TestUpdateKey(t *testing.T) {
 		AutomigrateEnabled: true,
 	})
 
-	err := store.Set("hello", "world", 1)
+	err = store.Set("hello", "world", 1)
 
 	if err != nil {
 		t.Fatalf("Setting key failed: %v", err)
@@ -190,7 +224,11 @@ func TestUpdateKey(t *testing.T) {
 }
 
 func TestSetGetJSON(t *testing.T) {
-	db := InitDB("test_cache_set_json.db")
+	db, err := initDB()
+
+	if err != nil {
+		t.Fatalf("DB could not be created: %v", err)
+	}
 
 	store, _ := NewStore(NewStoreOptions{
 		DB:                 db,
@@ -198,7 +236,7 @@ func TestSetGetJSON(t *testing.T) {
 		AutomigrateEnabled: true,
 	})
 
-	err := store.SetJSON("hello", map[string]string{"first_name": "Jo"}, 1)
+	err = store.SetJSON("hello", map[string]string{"first_name": "Jo"}, 1)
 
 	if err != nil {
 		t.Fatalf("Setting key failed: %v", err)
