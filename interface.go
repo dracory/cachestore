@@ -1,13 +1,16 @@
 package cachestore
 
-import "database/sql"
+import (
+	"context"
+	"database/sql"
+)
 
 type StoreInterface interface {
 	AutoMigrate() error
 	EnableDebug(debugEnabled bool)
 	DriverName(db *sql.DB) string
 
-	ExpireCacheGoroutine() error
+	ExpireCacheGoroutine(ctx context.Context) error
 
 	// SQLCreateTable() string
 

@@ -106,42 +106,78 @@ func (st *storeImplementation) EnableDebug(debugEnabled bool) {
 	st.debugEnabled = debugEnabled
 }
 
-// ExpireCacheGoroutine - soft deletes expired cache
-func (st *storeImplementation) ExpireCacheGoroutine() error {
-	i := 0
-	for {
-		i++
-		if st.debugEnabled {
-			log.Println("Cleaning expired cache...")
-		}
-		sqlStr, _, errSql := goqu.Dialect(st.dbDriverName).From(st.cacheTableName).Where(goqu.C("expires_at").Lt(time.Now())).Delete().ToSQL()
+// ExpireCacheGoroutine soft deletes expired cache using the provided context
+// for cancellation.
+func (st *storeImplementation) ExpireCacheGoroutine(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
-		if errSql != nil {
-			if st.debugEnabled {
-				log.Println(errSql.Error())
-			}
-			return errSql
-		}
-
-		if st.debugEnabled {
-			log.Println(sqlStr)
-		}
-
-		_, err := st.db.Exec(sqlStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				// Looks like this is now outdated for sqlscan
-				return nil
-			}
-			if sqlscan.NotFound(err) {
-				return nil
-			}
-			log.Println("CacheStore. ExpireCacheGoroutine. Error: ", err)
+	if err := st.expireCacheOnce(ctx); err != nil {
+		if errors.Is(err, context.Canceled) {
 			return nil
 		}
-
-		time.Sleep(60 * time.Second) // Every minute
+		return err
 	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(60 * time.Second):
+			if err := st.expireCacheOnce(ctx); err != nil {
+				if errors.Is(err, context.Canceled) {
+					return nil
+				}
+				return err
+			}
+		}
+	}
+}
+
+func (st *storeImplementation) expireCacheOnce(ctx context.Context) error {
+	if st.debugEnabled {
+		log.Println("Cleaning expired cache...")
+	}
+
+	sqlStr, _, errSql := goqu.Dialect(st.dbDriverName).
+		From(st.cacheTableName).
+		Where(goqu.C("expires_at").Lt(time.Now())).
+		Delete().
+		ToSQL()
+
+	if errSql != nil {
+		if st.debugEnabled {
+			log.Println(errSql.Error())
+		}
+		return errSql
+	}
+
+	if st.debugEnabled {
+		log.Println(sqlStr)
+	}
+
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	_, err := st.db.ExecContext(ctx, sqlStr)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return context.Canceled
+		}
+		if err == sql.ErrNoRows {
+			// Looks like this is now outdated for sqlscan
+			return nil
+		}
+		if sqlscan.NotFound(err) {
+			return nil
+		}
+		log.Println("CacheStore. ExpireCacheGoroutine. Error: ", err)
+		return nil
+	}
+
+	return nil
 }
 
 // FindByKey finds a cache by key
