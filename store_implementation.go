@@ -57,17 +57,42 @@ func NewStore(opts NewStoreOptions) (StoreInterface, error) {
 	}
 
 	if store.automigrateEnabled {
-		store.AutoMigrate()
+		store.MigrateUp(nil)
 	}
 
 	return store, nil
 }
 
-// AutoMigrate auto migrate
-func (st *storeImplementation) AutoMigrate() error {
-	sql := st.SQLCreateTable()
+// MigrateUp creates the cache table
+func (st *storeImplementation) MigrateUp(tx *sql.Tx) error {
+	sql := st.sqlCreateTable()
 
-	_, err := st.db.Exec(sql)
+	var err error
+	if tx != nil {
+		_, err = tx.Exec(sql)
+	} else {
+		_, err = st.db.Exec(sql)
+	}
+
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	return nil
+}
+
+// MigrateDown drops the cache table
+func (st *storeImplementation) MigrateDown(tx *sql.Tx) error {
+	sql := st.sqlDropTable()
+
+	var err error
+	if tx != nil {
+		_, err = tx.Exec(sql)
+	} else {
+		_, err = st.db.Exec(sql)
+	}
+
 	if err != nil {
 		log.Println(err)
 		return err
@@ -104,6 +129,16 @@ func (st *storeImplementation) DriverName(db *sql.DB) string {
 // EnableDebug - enables the debug option
 func (st *storeImplementation) EnableDebug(debugEnabled bool) {
 	st.debugEnabled = debugEnabled
+}
+
+// GetCacheTableName returns the cache table name
+func (st *storeImplementation) GetCacheTableName() string {
+	return st.cacheTableName
+}
+
+// SetCacheTableName sets the cache table name
+func (st *storeImplementation) SetCacheTableName(cacheTableName string) {
+	st.cacheTableName = cacheTableName
 }
 
 // ExpireCacheGoroutine soft deletes expired cache using the provided context
@@ -363,57 +398,4 @@ func (st *storeImplementation) SetJSON(key string, value interface{}, seconds in
 	}
 
 	return st.Set(key, string(jsonValue), seconds)
-}
-
-// SQLCreateTable returns a SQL string for creating the cache table
-func (st *storeImplementation) SQLCreateTable() string {
-	sqlMysql := `
-	CREATE TABLE IF NOT EXISTS ` + st.cacheTableName + ` (
-	  id varchar(40) NOT NULL PRIMARY KEY,
-	  cache_key varchar(255) NOT NULL,
-	  cache_value text,
-	  expires_at datetime,
-	  created_at datetime NOT NULL,
-	  updated_at datetime NOT NULL,
-	  deleted_at datetime
-	);
-	`
-
-	sqlPostgres := `
-	CREATE TABLE IF NOT EXISTS "` + st.cacheTableName + `" (
-	  "id" varchar(40) NOT NULL PRIMARY KEY,
-	  "cache_key" varchar(255) NOT NULL,
-	  "cache_value" text,
-	  "expires_at" timestamptz(6),
-	  "created_at" timestamptz(6) NOT NULL,
-	  "updated_at" timestamptz(6) NOT NULL,
-	  "deleted_at" timestamptz(6)
-	)
-	`
-
-	sqlSqlite := `
-	CREATE TABLE IF NOT EXISTS "` + st.cacheTableName + `" (
-	  "id" varchar(40) NOT NULL PRIMARY KEY,
-	  "cache_key" varchar(255) NOT NULL,
-	  "cache_value" text,
-	  "expires_at" datetime,
-	  "created_at" datetime NOT NULL,
-	  "updated_at" datetime NOT NULL,
-	  "deleted_at" datetime
-	)
-	`
-
-	sql := "unsupported driver " + st.dbDriverName
-
-	if st.dbDriverName == "mysql" {
-		sql = sqlMysql
-	}
-	if st.dbDriverName == "postgres" {
-		sql = sqlPostgres
-	}
-	if st.dbDriverName == "sqlite" {
-		sql = sqlSqlite
-	}
-
-	return sql
 }
