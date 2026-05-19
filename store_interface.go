@@ -19,10 +19,10 @@ type StoreInterface interface {
 	SetCacheTableName(cacheTableName string)
 
 	// MigrateDown drops the cache table
-	MigrateDown(tx *sql.Tx) error
+	MigrateDown(tx ...*sql.Tx) error
 
 	// MigrateUp creates the cache table
-	MigrateUp(tx *sql.Tx) error
+	MigrateUp(tx ...*sql.Tx) error
 
 	// ExpireCacheGoroutine runs the cache expiration goroutine
 	ExpireCacheGoroutine(ctx context.Context) error

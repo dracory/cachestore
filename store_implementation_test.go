@@ -73,10 +73,10 @@ func TestStoreAutomigrate(t *testing.T) {
 		AutomigrateEnabled: false,
 	})
 
-	err = store.MigrateUp(nil)
+	err = store.MigrateUp()
 
 	if err != nil {
-		t.Fatalf("MigrateUp failed: %v", err)
+		t.Fatal("MigrateUp failed: " + err.Error())
 	}
 
 	err = store.Set("post", "1234567890", 5)
@@ -128,10 +128,10 @@ func TestStoreEnableDebug(t *testing.T) {
 	})
 	store.EnableDebug(true)
 
-	err = store.MigrateUp(nil)
+	err = store.MigrateUp()
 
 	if err != nil {
-		t.Fatalf("MigrateUp failed: %v", err)
+		t.Fatal("MigrateUp failed: " + err.Error())
 	}
 }
 

@@ -57,19 +57,24 @@ func NewStore(opts NewStoreOptions) (StoreInterface, error) {
 	}
 
 	if store.automigrateEnabled {
-		store.MigrateUp(nil)
+		store.MigrateUp()
 	}
 
 	return store, nil
 }
 
 // MigrateUp creates the cache table
-func (st *storeImplementation) MigrateUp(tx *sql.Tx) error {
+func (st *storeImplementation) MigrateUp(tx ...*sql.Tx) error {
+	var txToUse *sql.Tx
+	if len(tx) > 0 {
+		txToUse = tx[0]
+	}
+
 	sql := st.sqlCreateTable()
 
 	var err error
-	if tx != nil {
-		_, err = tx.Exec(sql)
+	if txToUse != nil {
+		_, err = txToUse.Exec(sql)
 	} else {
 		_, err = st.db.Exec(sql)
 	}
@@ -83,12 +88,17 @@ func (st *storeImplementation) MigrateUp(tx *sql.Tx) error {
 }
 
 // MigrateDown drops the cache table
-func (st *storeImplementation) MigrateDown(tx *sql.Tx) error {
+func (st *storeImplementation) MigrateDown(tx ...*sql.Tx) error {
+	var txToUse *sql.Tx
+	if len(tx) > 0 {
+		txToUse = tx[0]
+	}
+
 	sql := st.sqlDropTable()
 
 	var err error
-	if tx != nil {
-		_, err = tx.Exec(sql)
+	if txToUse != nil {
+		_, err = txToUse.Exec(sql)
 	} else {
 		_, err = st.db.Exec(sql)
 	}
