@@ -1,6 +1,7 @@
 package cachestore
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 	"time"
@@ -73,7 +74,7 @@ func TestStoreAutomigrate(t *testing.T) {
 		AutomigrateEnabled: false,
 	})
 
-	err = store.MigrateUp()
+	err = store.MigrateUp(context.Background())
 
 	if err != nil {
 		t.Fatal("MigrateUp failed: " + err.Error())
@@ -128,7 +129,7 @@ func TestStoreEnableDebug(t *testing.T) {
 	})
 	store.EnableDebug(true)
 
-	err = store.MigrateUp()
+	err = store.MigrateUp(context.Background())
 
 	if err != nil {
 		t.Fatal("MigrateUp failed: " + err.Error())

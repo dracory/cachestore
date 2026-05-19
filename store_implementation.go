@@ -57,14 +57,14 @@ func NewStore(opts NewStoreOptions) (StoreInterface, error) {
 	}
 
 	if store.automigrateEnabled {
-		store.MigrateUp()
+		store.MigrateUp(context.Background())
 	}
 
 	return store, nil
 }
 
 // MigrateUp creates the cache table
-func (st *storeImplementation) MigrateUp(tx ...*sql.Tx) error {
+func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) error {
 	var txToUse *sql.Tx
 	if len(tx) > 0 {
 		txToUse = tx[0]
@@ -74,9 +74,9 @@ func (st *storeImplementation) MigrateUp(tx ...*sql.Tx) error {
 
 	var err error
 	if txToUse != nil {
-		_, err = txToUse.Exec(sql)
+		_, err = txToUse.ExecContext(ctx, sql)
 	} else {
-		_, err = st.db.Exec(sql)
+		_, err = st.db.ExecContext(ctx, sql)
 	}
 
 	if err != nil {
@@ -88,7 +88,7 @@ func (st *storeImplementation) MigrateUp(tx ...*sql.Tx) error {
 }
 
 // MigrateDown drops the cache table
-func (st *storeImplementation) MigrateDown(tx ...*sql.Tx) error {
+func (st *storeImplementation) MigrateDown(ctx context.Context, tx ...*sql.Tx) error {
 	var txToUse *sql.Tx
 	if len(tx) > 0 {
 		txToUse = tx[0]
@@ -98,9 +98,9 @@ func (st *storeImplementation) MigrateDown(tx ...*sql.Tx) error {
 
 	var err error
 	if txToUse != nil {
-		_, err = txToUse.Exec(sql)
+		_, err = txToUse.ExecContext(ctx, sql)
 	} else {
-		_, err = st.db.Exec(sql)
+		_, err = st.db.ExecContext(ctx, sql)
 	}
 
 	if err != nil {
