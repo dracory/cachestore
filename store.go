@@ -15,6 +15,45 @@ import (
 	"github.com/dromara/carbon/v2"
 )
 
+// StoreInterface defines the interface for a cache store
+type StoreInterface interface {
+	// EnableDebug enables or disables debug mode
+	EnableDebug(debugEnabled bool)
+
+	// GetCacheTableName returns the cache table name
+	GetCacheTableName() string
+
+	// SetCacheTableName sets the cache table name
+	SetCacheTableName(cacheTableName string)
+
+	// MigrateDown drops the cache table
+	MigrateDown(ctx context.Context, tx ...*sql.Tx) error
+
+	// MigrateUp creates the cache table
+	MigrateUp(ctx context.Context, tx ...*sql.Tx) error
+
+	// ExpireCacheGoroutine runs the cache expiration goroutine
+	ExpireCacheGoroutine(ctx context.Context) error
+
+	// Set stores a value in the cache
+	Set(key string, value string, seconds int64) error
+
+	// Get retrieves a value from the cache
+	Get(key string, valueDefault string) (string, error)
+
+	// SetJSON stores a JSON value in the cache
+	SetJSON(key string, value any, seconds int64) error
+
+	// GetJSON retrieves a JSON value from the cache
+	GetJSON(key string, valueDefault any) (any, error)
+
+	// Remove removes a value from the cache
+	Remove(key string) error
+
+	// FindByKey finds a cache entry by key
+	FindByKey(key string) (*Cache, error)
+}
+
 // storeImplementation defines a cache store
 type storeImplementation struct {
 	db                 *neat.Database
@@ -339,12 +378,11 @@ func (st *storeImplementation) Set(key string, value string, seconds int64) erro
 	return nil
 }
 
-// SetJSON sets a JSON value in the cache
+// SetJSON sets a JSON value in cache
 func (st *storeImplementation) SetJSON(key string, value any, seconds int64) error {
 	jsonValue, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
-
 	return st.Set(key, string(jsonValue), seconds)
 }
