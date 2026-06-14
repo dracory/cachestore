@@ -5,59 +5,66 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"log"
-	"reflect"
-	"strings"
+	"log/slog"
+	"os"
 	"time"
 
-	"github.com/doug-martin/goqu/v9"
-	"github.com/dracory/uid"
-	"github.com/georgysavva/scany/sqlscan"
+	"github.com/dracory/neat"
+	contractsschema "github.com/dracory/neat/contracts/database/schema"
+	neatuid "github.com/dracory/neat/support/uid"
+	"github.com/dromara/carbon/v2"
 )
 
-// Store defines a session store
+// storeImplementation defines a cache store
 type storeImplementation struct {
+	db                 *neat.Database
 	cacheTableName     string
-	dbDriverName       string
-	db                 *sql.DB
 	automigrateEnabled bool
 	debugEnabled       bool
+	logger             *slog.Logger
 }
 
-// NewStoreOptions define the options for creating a new session store
+// NewStoreOptions define the options for creating a new cache store
 type NewStoreOptions struct {
-	CacheTableName     string
 	DB                 *sql.DB
-	DbDriverName       string
-	TimeoutSeconds     int64
+	CacheTableName     string
 	AutomigrateEnabled bool
 	DebugEnabled       bool
 }
 
-// NewStore creates a new entity store
+// NewStore creates a new cache store
 func NewStore(opts NewStoreOptions) (StoreInterface, error) {
-	store := &storeImplementation{
-		cacheTableName:     opts.CacheTableName,
-		automigrateEnabled: opts.AutomigrateEnabled,
-		db:                 opts.DB,
-		dbDriverName:       opts.DbDriverName,
-		debugEnabled:       opts.DebugEnabled,
-	}
-
-	if store.cacheTableName == "" {
-		return nil, errors.New("cache store: sessionTableName is required")
-	}
-
-	if store.db == nil {
+	if opts.DB == nil {
 		return nil, errors.New("cache store: DB is required")
 	}
 
-	if store.dbDriverName == "" {
-		store.dbDriverName = store.DriverName(store.db)
+	if opts.CacheTableName == "" {
+		return nil, errors.New("cache store: CacheTableName is required")
+	}
+
+	neatDB, err := neat.NewFromSQLDB(opts.DB)
+	if err != nil {
+		return nil, err
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	store := &storeImplementation{
+		logger:             logger,
+		db:                 neatDB,
+		cacheTableName:     opts.CacheTableName,
+		automigrateEnabled: opts.AutomigrateEnabled,
+		debugEnabled:       opts.DebugEnabled,
+	}
+
+	if store.debugEnabled {
+		store.EnableDebug(true)
 	}
 
 	if store.automigrateEnabled {
-		store.MigrateUp(context.Background())
+		err := store.MigrateUp(context.Background())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return store, nil
@@ -65,22 +72,28 @@ func NewStore(opts NewStoreOptions) (StoreInterface, error) {
 
 // MigrateUp creates the cache table
 func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) error {
-	var txToUse *sql.Tx
-	if len(tx) > 0 {
-		txToUse = tx[0]
+	if st.db.Schema().HasTable(st.cacheTableName) {
+		if st.debugEnabled {
+			st.logger.Info("MigrateUp: table already exists", "table", st.cacheTableName)
+		}
+		return nil
 	}
 
-	sql := st.sqlCreateTable()
-
-	var err error
-	if txToUse != nil {
-		_, err = txToUse.ExecContext(ctx, sql)
-	} else {
-		_, err = st.db.ExecContext(ctx, sql)
-	}
+	err := st.db.Schema().Create(st.cacheTableName, func(table contractsschema.Blueprint) {
+		table.String(COLUMN_ID, 21)
+		table.Primary(COLUMN_ID)
+		table.String(COLUMN_KEY, 255)
+		table.Text(COLUMN_VALUE)
+		table.DateTime(COLUMN_EXPIRES_AT)
+		table.DateTime(COLUMN_CREATED_AT)
+		table.DateTime(COLUMN_UPDATED_AT)
+		table.DateTime(COLUMN_DELETED_AT).Nullable()
+	})
 
 	if err != nil {
-		log.Println(err)
+		if st.debugEnabled {
+			st.logger.Error("MigrateUp failed", "error", err)
+		}
 		return err
 	}
 
@@ -89,56 +102,33 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 
 // MigrateDown drops the cache table
 func (st *storeImplementation) MigrateDown(ctx context.Context, tx ...*sql.Tx) error {
-	var txToUse *sql.Tx
-	if len(tx) > 0 {
-		txToUse = tx[0]
+	if !st.db.Schema().HasTable(st.cacheTableName) {
+		if st.debugEnabled {
+			st.logger.Info("MigrateDown: table does not exist", "table", st.cacheTableName)
+		}
+		return nil
 	}
 
-	sql := st.sqlDropTable()
-
-	var err error
-	if txToUse != nil {
-		_, err = txToUse.ExecContext(ctx, sql)
-	} else {
-		_, err = st.db.ExecContext(ctx, sql)
-	}
-
+	err := st.db.Schema().Drop(st.cacheTableName)
 	if err != nil {
-		log.Println(err)
+		if st.debugEnabled {
+			st.logger.Error("MigrateDown failed", "error", err)
+		}
 		return err
 	}
-
 	return nil
 }
 
-// DriverName finds the driver name from database
-func (st *storeImplementation) DriverName(db *sql.DB) string {
-	dv := reflect.ValueOf(db.Driver())
-
-	driverFullName := dv.Type().String()
-
-	if strings.Contains(driverFullName, "mysql") {
-		return "mysql"
+// EnableDebug enables or disables debug mode
+func (st *storeImplementation) EnableDebug(debug bool) {
+	st.debugEnabled = debug
+	if debug {
+		st.db.EnableDebug()
+		st.logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	} else {
+		st.db.DisableDebug()
+		st.logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
 	}
-
-	if strings.Contains(driverFullName, "postgres") || strings.Contains(driverFullName, "pq") {
-		return "postgres"
-	}
-
-	if strings.Contains(driverFullName, "sqlite") {
-		return "sqlite"
-	}
-
-	if strings.Contains(driverFullName, "mssql") {
-		return "mssql"
-	}
-
-	return driverFullName
-}
-
-// EnableDebug - enables the debug option
-func (st *storeImplementation) EnableDebug(debugEnabled bool) {
-	st.debugEnabled = debugEnabled
 }
 
 // GetCacheTableName returns the cache table name
@@ -182,43 +172,23 @@ func (st *storeImplementation) ExpireCacheGoroutine(ctx context.Context) error {
 
 func (st *storeImplementation) expireCacheOnce(ctx context.Context) error {
 	if st.debugEnabled {
-		log.Println("Cleaning expired cache...")
+		st.logger.Debug("Cleaning expired cache...")
 	}
 
-	sqlStr, _, errSql := goqu.Dialect(st.dbDriverName).
-		From(st.cacheTableName).
-		Where(goqu.C("expires_at").Lt(time.Now())).
-		Delete().
-		ToSQL()
+	now := time.Now()
+	_, err := st.db.Query().
+		Table(st.cacheTableName).
+		Where(COLUMN_EXPIRES_AT+" < ?", now).
+		Delete()
 
-	if errSql != nil {
-		if st.debugEnabled {
-			log.Println(errSql.Error())
-		}
-		return errSql
-	}
-
-	if st.debugEnabled {
-		log.Println(sqlStr)
-	}
-
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-
-	_, err := st.db.ExecContext(ctx, sqlStr)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			return context.Canceled
 		}
-		if err == sql.ErrNoRows {
-			// Looks like this is now outdated for sqlscan
-			return nil
+		if st.debugEnabled {
+			st.logger.Debug("expireCacheOnce error", "error", err)
 		}
-		if sqlscan.NotFound(err) {
-			return nil
-		}
-		log.Println("CacheStore. ExpireCacheGoroutine. Error: ", err)
+		// Don't return error for cleanup failures
 		return nil
 	}
 
@@ -227,40 +197,26 @@ func (st *storeImplementation) expireCacheOnce(ctx context.Context) error {
 
 // FindByKey finds a cache by key
 func (st *storeImplementation) FindByKey(key string) (*Cache, error) {
-	sqlStr, _, errSql := goqu.Dialect(st.dbDriverName).
-		From(st.cacheTableName).
-		Where(goqu.C("cache_key").Eq(key), goqu.C("deleted_at").IsNull()).
-		Select("*").
-		Limit(1).
-		ToSQL()
-
-	if errSql != nil {
-		if st.debugEnabled {
-			log.Println(errSql.Error())
-		}
-		return nil, errSql
+	if key == "" {
+		return nil, nil
 	}
 
-	if st.debugEnabled {
-		log.Println(sqlStr)
-	}
-
+	now := time.Now()
 	var cache Cache
-	err := sqlscan.Get(context.Background(), st.db, &cache, sqlStr)
+	err := st.db.Query().
+		Table(st.cacheTableName).
+		Where(COLUMN_KEY+" = ?", key).
+		Where(COLUMN_DELETED_AT+" IS NULL").
+		Where(COLUMN_EXPIRES_AT+" > ?", now).
+		First(&cache)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			// Looks like this is now outdated for sqlscan
+		if err.Error() == "no rows found" {
 			return nil, nil
 		}
-		if sqlscan.NotFound(err) {
-			return nil, nil
-		}
-
 		if st.debugEnabled {
-			log.Println("CacheStore. FindByKey. Error: ", err)
+			st.logger.Debug("FindByKey error", "error", err, "key", key)
 		}
-
 		return nil, err
 	}
 
@@ -276,7 +232,7 @@ func (st *storeImplementation) Get(key string, valueDefault string) (string, err
 	}
 
 	if cache != nil {
-		return cache.Value, nil
+		return cache.ValueField, nil
 	}
 
 	return valueDefault, nil
@@ -291,7 +247,7 @@ func (st *storeImplementation) GetJSON(key string, valueDefault interface{}) (in
 	}
 
 	if cache != nil {
-		jsonValue := cache.Value
+		jsonValue := cache.ValueField
 		var e interface{}
 		jsonError := json.Unmarshal([]byte(jsonValue), &e)
 		if jsonError != nil {
@@ -306,35 +262,21 @@ func (st *storeImplementation) GetJSON(key string, valueDefault interface{}) (in
 
 // Remove removes a key from cache
 func (st *storeImplementation) Remove(key string) error {
-	sqlStr, _, errSql := goqu.Dialect(st.dbDriverName).
-		From(st.cacheTableName).
-		Where(goqu.C("cache_key").Eq(key), goqu.C("deleted_at").IsNull()).
-		Delete().
-		ToSQL()
-
-	if errSql != nil {
-		if st.debugEnabled {
-			log.Println(errSql.Error())
-		}
-		return errSql
+	if key == "" {
+		return nil
 	}
 
-	if st.debugEnabled {
-		log.Println(sqlStr)
-	}
+	_, err := st.db.Query().
+		Table(st.cacheTableName).
+		Where(COLUMN_KEY+" = ?", key).
+		Where(COLUMN_DELETED_AT + " IS NULL").
+		Delete()
 
-	_, err := st.db.Exec(sqlStr)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			// Looks like this is now outdated for sqlscan
-			return nil
+		if st.debugEnabled {
+			st.logger.Debug("Remove error", "error", err, "key", key)
 		}
-
-		if sqlscan.NotFound(err) {
-			return nil
-		}
-
-		log.Println("CacheStore. Error: ", err)
+		// Return nil for not found cases
 		return nil
 	}
 
@@ -343,6 +285,10 @@ func (st *storeImplementation) Remove(key string) error {
 
 // Set sets new key value pair
 func (st *storeImplementation) Set(key string, value string, seconds int64) error {
+	if key == "" {
+		return errors.New("key is required")
+	}
+
 	cache, errFind := st.FindByKey(key)
 
 	if errFind != nil {
@@ -351,60 +297,53 @@ func (st *storeImplementation) Set(key string, value string, seconds int64) erro
 
 	expiresAt := time.Now().Add(time.Second * time.Duration(seconds))
 
-	var sqlStr string
-	var errSql error
 	if cache == nil {
-		var newCache = Cache{
-			ID:        uid.NanoUid(),
-			Key:       key,
-			Value:     value,
-			ExpiresAt: &expiresAt,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+		// Create new cache entry
+		row := map[string]any{
+			COLUMN_ID:         neatuid.GenerateShortID(),
+			COLUMN_KEY:        key,
+			COLUMN_VALUE:      value,
+			COLUMN_EXPIRES_AT: expiresAt,
+			COLUMN_CREATED_AT: carbon.Now(carbon.UTC).StdTime(),
+			COLUMN_UPDATED_AT: carbon.Now(carbon.UTC).StdTime(),
 		}
-		sqlStr, _, errSql = goqu.Dialect(st.dbDriverName).
-			Insert(st.cacheTableName).
-			Rows(newCache).
-			ToSQL()
+
+		err := st.db.Query().Table(st.cacheTableName).Create(row)
+		if err != nil {
+			if st.debugEnabled {
+				st.logger.Debug("Set create error", "error", err)
+			}
+			return err
+		}
 	} else {
-		fields := map[string]interface{}{}
-		fields["cache_value"] = value
-		fields["expires_at"] = &expiresAt
-		fields["updated_at"] = time.Now()
-
-		sqlStr, _, errSql = goqu.Dialect(st.dbDriverName).
-			Update(st.cacheTableName).
-			Set(fields).
-			Where(goqu.C("id").Eq(cache.ID)).
-			ToSQL()
-	}
-
-	if errSql != nil {
-		if st.debugEnabled {
-			log.Println(errSql.Error())
+		// Update existing cache entry
+		row := map[string]any{
+			COLUMN_VALUE:      value,
+			COLUMN_EXPIRES_AT: expiresAt,
+			COLUMN_UPDATED_AT: carbon.Now(carbon.UTC).StdTime(),
 		}
-		return errSql
-	}
 
-	if st.debugEnabled {
-		log.Println(sqlStr)
-	}
+		_, err := st.db.Query().
+			Table(st.cacheTableName).
+			Where(COLUMN_ID+" = ?", cache.ID).
+			Update(row)
 
-	_, errExec := st.db.Exec(sqlStr)
-
-	if errExec != nil {
-		return errExec
+		if err != nil {
+			if st.debugEnabled {
+				st.logger.Debug("Set update error", "error", err)
+			}
+			return err
+		}
 	}
 
 	return nil
 }
 
-// SetJSON sets new key JSON value pair
-func (st *storeImplementation) SetJSON(key string, value interface{}, seconds int64) error {
-	jsonValue, jsonError := json.Marshal(value)
-
-	if jsonError != nil {
-		return jsonError
+// SetJSON sets a JSON value in the cache
+func (st *storeImplementation) SetJSON(key string, value any, seconds int64) error {
+	jsonValue, err := json.Marshal(value)
+	if err != nil {
+		return err
 	}
 
 	return st.Set(key, string(jsonValue), seconds)

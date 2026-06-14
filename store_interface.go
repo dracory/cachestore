@@ -6,9 +6,6 @@ import (
 )
 
 type StoreInterface interface {
-	// DriverName returns the name of the database driver
-	DriverName(db *sql.DB) string
-
 	// EnableDebug enables or disables debug mode
 	EnableDebug(debugEnabled bool)
 
