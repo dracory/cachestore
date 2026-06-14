@@ -148,7 +148,7 @@ func (st *storeImplementation) ExpireCacheGoroutine(ctx context.Context) error {
 		ctx = context.Background()
 	}
 
-	if err := st.expireCacheOnce(ctx); err != nil {
+	if err := st.expireCacheOnce(); err != nil {
 		if errors.Is(err, context.Canceled) {
 			return nil
 		}
@@ -160,7 +160,7 @@ func (st *storeImplementation) ExpireCacheGoroutine(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-time.After(60 * time.Second):
-			if err := st.expireCacheOnce(ctx); err != nil {
+			if err := st.expireCacheOnce(); err != nil {
 				if errors.Is(err, context.Canceled) {
 					return nil
 				}
@@ -170,7 +170,7 @@ func (st *storeImplementation) ExpireCacheGoroutine(ctx context.Context) error {
 	}
 }
 
-func (st *storeImplementation) expireCacheOnce(ctx context.Context) error {
+func (st *storeImplementation) expireCacheOnce() error {
 	if st.debugEnabled {
 		st.logger.Debug("Cleaning expired cache...")
 	}
