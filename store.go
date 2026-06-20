@@ -11,6 +11,8 @@ import (
 
 	"github.com/dracory/neat"
 	contractsschema "github.com/dracory/neat/contracts/database/schema"
+	"github.com/dracory/neat/database/schema/constants"
+	"github.com/dracory/neat/database/soft_delete"
 	neatuid "github.com/dracory/neat/support/uid"
 	"github.com/dromara/carbon/v2"
 )
@@ -126,7 +128,7 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 		table.DateTime(COLUMN_EXPIRES_AT)
 		table.DateTime(COLUMN_CREATED_AT)
 		table.DateTime(COLUMN_UPDATED_AT)
-		table.DateTime(COLUMN_DELETED_AT).Nullable()
+		table.DateTime(constants.SoftDeleteAtColumn).Default(constants.MaxSoftDeletedAtDefault)
 	})
 
 	if err != nil {
@@ -214,10 +216,10 @@ func (st *storeImplementation) expireCacheOnce() error {
 		st.logger.Debug("Cleaning expired cache...")
 	}
 
-	now := time.Now()
 	_, err := st.db.Query().
+		Model(&Cache{}).
 		Table(st.cacheTableName).
-		Where(COLUMN_EXPIRES_AT+" < ?", now).
+		Where(COLUMN_EXPIRES_AT+" < ?", carbon.Now(carbon.UTC).StdTime()).
 		Delete()
 
 	if err != nil {
@@ -240,13 +242,12 @@ func (st *storeImplementation) FindByKey(key string) (*Cache, error) {
 		return nil, nil
 	}
 
-	now := time.Now()
 	var cache Cache
 	err := st.db.Query().
+		Model(&Cache{}).
 		Table(st.cacheTableName).
 		Where(COLUMN_KEY+" = ?", key).
-		Where(COLUMN_DELETED_AT+" IS NULL").
-		Where(COLUMN_EXPIRES_AT+" > ?", now).
+		Where(COLUMN_EXPIRES_AT+" > ?", carbon.Now(carbon.UTC).StdTime()).
 		First(&cache)
 
 	if err != nil {
@@ -306,9 +307,9 @@ func (st *storeImplementation) Remove(key string) error {
 	}
 
 	_, err := st.db.Query().
+		Model(&Cache{}).
 		Table(st.cacheTableName).
 		Where(COLUMN_KEY+" = ?", key).
-		Where(COLUMN_DELETED_AT + " IS NULL").
 		Delete()
 
 	if err != nil {
@@ -345,6 +346,7 @@ func (st *storeImplementation) Set(key string, value string, seconds int64) erro
 			COLUMN_EXPIRES_AT: expiresAt,
 			COLUMN_CREATED_AT: carbon.Now(carbon.UTC).StdTime(),
 			COLUMN_UPDATED_AT: carbon.Now(carbon.UTC).StdTime(),
+			COLUMN_DELETED_AT: soft_delete.MaxSoftDeletedAt,
 		}
 
 		err := st.db.Query().Table(st.cacheTableName).Create(row)
@@ -363,6 +365,7 @@ func (st *storeImplementation) Set(key string, value string, seconds int64) erro
 		}
 
 		_, err := st.db.Query().
+			Model(&Cache{}).
 			Table(st.cacheTableName).
 			Where(COLUMN_ID+" = ?", cache.ID).
 			Update(row)

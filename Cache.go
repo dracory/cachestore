@@ -4,16 +4,17 @@ import (
 	"time"
 
 	"github.com/dracory/neat/database/orm"
+	"github.com/dracory/neat/database/soft_delete"
 )
 
 // Cache type
 type Cache struct {
 	orm.ShortID
+	soft_delete.SoftDeletesMaxDate
 
 	KeyField       string     `db:"cache_key"`
 	ValueField     string     `db:"cache_value"`
 	ExpiresAtField *time.Time `db:"expires_at"`
-	DeletedAtField *time.Time `db:"deleted_at"`
 
 	CreatedAtField time.Time `db:"created_at"`
 	UpdatedAtField time.Time `db:"updated_at"`
@@ -61,5 +62,9 @@ func (c *Cache) UpdatedAt() time.Time {
 
 // DeletedAt returns the soft delete timestamp (nil if not deleted)
 func (c *Cache) DeletedAt() *time.Time {
-	return c.DeletedAtField
+	if c.SoftDeletedAt.IsZero() || !c.SoftDeletedAt.After(time.Now()) {
+		return nil
+	}
+	t := c.SoftDeletedAt
+	return &t
 }
