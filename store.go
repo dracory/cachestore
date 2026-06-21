@@ -251,7 +251,7 @@ func (st *storeImplementation) FindByKey(key string) (*Cache, error) {
 		First(&cache)
 
 	if err != nil {
-		if err.Error() == "no rows found" {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		if st.debugEnabled {
