@@ -3,7 +3,7 @@ module github.com/dracory/cachestore
 go 1.26.3
 
 require (
-	github.com/dracory/neat v0.27.0
+	github.com/dracory/neat v0.25.0
 	github.com/dromara/carbon/v2 v2.6.16
 	modernc.org/sqlite v1.53.0
 )
