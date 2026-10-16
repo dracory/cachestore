@@ -216,3 +216,31 @@ func TestSetGetJSON(t *testing.T) {
 		t.Fatalf("Incorrect value: %s", value)
 	}
 }
+
+func TestUUIDV7Generated(t *testing.T) {
+	db := initTestDB(t)
+
+	store, _ := NewStore(NewStoreOptions{
+		DB:                 db,
+		CacheTableName:     "cache_uuid_v7",
+		AutomigrateEnabled: true,
+	})
+
+	err := store.Set("uuid_key", "uuid_val", 60)
+	if err != nil {
+		t.Fatalf("Setting key failed: %v", err)
+	}
+
+	cache, err := store.FindByKey("uuid_key")
+	if err != nil {
+		t.Fatalf("FindByKey failed: %v", err)
+	}
+
+	if cache == nil {
+		t.Fatalf("Cache entry not found")
+	}
+
+	if len(cache.ID) != 36 {
+		t.Fatalf("Expected ID length 36 for UUID, got length %d: %s", len(cache.ID), cache.ID)
+	}
+}
