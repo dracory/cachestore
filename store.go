@@ -12,8 +12,9 @@ import (
 	"github.com/dracory/neat"
 	contractsschema "github.com/dracory/neat/contracts/database/schema"
 	"github.com/dracory/neat/database/schema/constants"
+	"uuid"
+
 	"github.com/dracory/neat/database/soft_delete"
-	neatuid "github.com/dracory/neat/support/uid"
 	"github.com/dromara/carbon/v2"
 )
 
@@ -121,7 +122,7 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 	}
 
 	err := st.db.Schema().Create(st.cacheTableName, func(table contractsschema.Blueprint) {
-		table.String(COLUMN_ID, 21)
+		table.String(COLUMN_ID, 36)
 		table.Primary(COLUMN_ID)
 		table.String(COLUMN_KEY, 255)
 		table.Text(COLUMN_VALUE)
@@ -340,7 +341,7 @@ func (st *storeImplementation) Set(key string, value string, seconds int64) erro
 	if cache == nil {
 		// Create new cache entry
 		row := map[string]any{
-			COLUMN_ID:         neatuid.GenerateShortID(),
+			COLUMN_ID:         uuid.NewV7().String(),
 			COLUMN_KEY:        key,
 			COLUMN_VALUE:      value,
 			COLUMN_EXPIRES_AT: expiresAt,

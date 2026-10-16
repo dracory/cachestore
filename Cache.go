@@ -9,7 +9,7 @@ import (
 
 // Cache type
 type Cache struct {
-	orm.ShortID
+	orm.StringID
 	soft_delete.SoftDeletesMaxDate
 
 	KeyField       string     `db:"cache_key"`
