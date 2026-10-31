@@ -5,7 +5,7 @@ go 1.27.0
 require (
 	github.com/dracory/neat v0.60.1
 	github.com/dromara/carbon/v2 v2.7.0
-	modernc.org/sqlite v1.61.0
+	modernc.org/sqlite v1.61.1
 )
 
 require (
